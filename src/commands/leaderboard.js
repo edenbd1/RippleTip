@@ -26,7 +26,7 @@ module.exports = {
           return `${index + 1}. <@${sender.discordId}>: ${sender.totalSent.toFixed(2)} RLUSD (${sender.count} tips)`;
         }).join('\n');
       }
-      embed.addFields({ name: '🏆 Top Tippers', value: topSendersValue });
+      embed.addFields({ name: '💖 Top Tippers', value: topSendersValue });
 
       // Add top receivers
       let topReceiversValue = 'No tips received yet.';
@@ -35,7 +35,7 @@ module.exports = {
           return `${index + 1}. ${receiver.displayName}: ${receiver.totalReceived.toFixed(2)} RLUSD (${receiver.count} tips)`;
         }).join('\n');
       }
-      embed.addFields({ name: '💰 Top Receivers', value: topReceiversValue });
+      embed.addFields({ name: '🎁 Top Receivers', value: topReceiversValue });
 
       // Add pagination buttons if needed
       const components = [];
@@ -97,7 +97,7 @@ module.exports = {
           return `${realIndex}. <@${sender.discordId}>: ${sender.totalSent.toFixed(2)} RLUSD (${sender.count} tips)`;
         }).join('\n');
       }
-      embed.addFields({ name: '🏆 Top Tippers', value: topSendersValue });
+      embed.addFields({ name: '💖 Top Tippers', value: topSendersValue });
       
       // Add top receivers
       let topReceiversValue = 'No tips received yet.';
@@ -107,7 +107,7 @@ module.exports = {
           return `${realIndex}. ${receiver.displayName}: ${receiver.totalReceived.toFixed(2)} RLUSD (${receiver.count} tips)`;
         }).join('\n');
       }
-      embed.addFields({ name: '💰 Top Receivers', value: topReceiversValue });
+      embed.addFields({ name: '🎁 Top Receivers', value: topReceiversValue });
       
       // Create navigation buttons
       const row = new ActionRowBuilder()

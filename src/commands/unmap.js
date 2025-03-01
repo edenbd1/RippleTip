@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { removeMapping } = require('../utils/mappingUtils');
+const { removeRelation } = require('../utils/relationUtils');
 const Mapping = require('../models/Mapping');
 
 module.exports = {
@@ -47,7 +47,10 @@ module.exports = {
       }
 
       // Remove the mapping
-      const result = await removeMapping(normalizedIdentifier, identifierType);
+      const result = await removeRelation(
+        normalizedIdentifier,
+        identifierType
+      );
 
       if (!result.success) {
         return interaction.editReply({ content: `❌ ${result.message}` });

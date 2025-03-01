@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const { isValidEthereumAddress } = require('../utils/ethereumUtils');
-const { createOrUpdateMapping, formatAddress } = require('../utils/mappingUtils');
+const { createOrUpdateRelation, formatAddress } = require('../utils/relationUtils');
 const { getAddressUrl } = require('../utils/tipUtils');
 
 module.exports = {
@@ -45,8 +45,8 @@ module.exports = {
         normalizedIdentifier = identifier.toLowerCase();
       }
 
-      // Create or update the mapping
-      const result = await createOrUpdateMapping(
+      // Create or update the relation
+      const result = await createOrUpdateRelation(
         normalizedIdentifier,
         identifierType,
         address,

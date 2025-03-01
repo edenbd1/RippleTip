@@ -18,9 +18,12 @@ module.exports = {
           { name: 'history', value: 'history' },
           { name: 'leaderboard', value: 'leaderboard' },
           { name: 'map', value: 'map' },
-          { name: 'mapping', value: 'mapping' },
+          { name: 'relations', value: 'relations' },
           { name: 'tip', value: 'tip' },
-          { name: 'unmap', value: 'unmap' }
+          { name: 'unmap', value: 'unmap' },
+          { name: 'fees', value: 'fees' },
+          { name: 'buy-lottery-ticket', value: 'buy-lottery-ticket' },
+          { name: 'draw-lottery', value: 'draw-lottery' }
         )),
   
   async execute(interaction) {
@@ -74,10 +77,14 @@ module.exports = {
           '`/tip` - Send RLUSD to a user or address\n' +
           '`/history` - View your transaction history'
         },
-        { name: '🔗 Mappings', value: 
+        { name: '🔗 Relations', value: 
           '`/map` - Associate an Ethereum address with your Discord account\n' +
           '`/unmap` - Remove the association between your Discord account and an address\n' +
-          '`/mapping` - View the associations between addresses and users'
+          '`/relations` - View the associations between addresses and users'
+        },
+        { name: '🎮 Lottery', value: 
+          '`/buy-lottery-ticket` - Purchase a lottery ticket with RLUSD\n' +
+          '`/draw-lottery` - Draw the lottery and select a winner'
         },
         { name: '📊 Statistics', value: 
           '`/leaderboard` - View the ranking of users by RLUSD balance'
@@ -102,10 +109,6 @@ module.exports = {
         new ButtonBuilder()
           .setURL('https://tryrlusd.com/')
           .setLabel('RLUSD Faucet')
-          .setStyle(ButtonStyle.Link),
-        new ButtonBuilder()
-          .setURL('https://www.sepoliafaucet.io/')
-          .setLabel('ETH Sepolia Faucet')
           .setStyle(ButtonStyle.Link)
       );
     
@@ -205,19 +208,19 @@ module.exports = {
         ],
         note: 'This command only allows you to receive tips. To send RLUSD, you must connect a wallet with a private key using `/connect` or create a new one with `/create-wallet`.'
       },
-      'mapping': {
-        title: '📋 Command: /mapping',
+      'relations': {
+        title: '📋 Command: /relations',
         description: 'View the associations between Ethereum addresses and Discord users.',
-        usage: '`/mapping [address] [user] [page]`',
+        usage: '`/relations [address] [user] [page]`',
         options: [
           { name: 'address', description: 'Ethereum address to search for (optional)' },
           { name: 'user', description: 'Discord user to search for (optional)' },
           { name: 'page', description: 'Page number to display (optional)' }
         ],
         examples: [
-          '`/mapping` - View all associations',
-          '`/mapping address:0x1234` - Search for a specific address',
-          '`/mapping user:@user` - Search for a specific user'
+          '`/relations` - View all associations',
+          '`/relations address:0x1234` - Search for a specific address',
+          '`/relations user:@user` - Search for a specific user'
         ]
       },
       'tip': {
@@ -246,36 +249,126 @@ module.exports = {
           '`/unmap 0x1234...5678` - Remove the association with an address'
         ],
         note: 'This command can only be used if you have an associated address without a private key. If you have a wallet connected with a private key, use `/disconnect` instead.'
+      },
+      'fees': {
+        title: '💰 RippleTip Fee Structure',
+        description: 'RippleTip uses a PayMaster contract to process transactions with a fee structure based on the amount sent.',
+        usage: '`/help fees`',
+        options: [],
+        examples: [
+          '`/help fees` - View the fee structure'
+        ],
+        feeStructure: [
+          { range: '1 - 4.99 RLUSD', fee: '10%' },
+          { range: '5 - 9.99 RLUSD', fee: '8%' },
+          { range: '10 - 24.99 RLUSD', fee: '6%' },
+          { range: '25 - 49.99 RLUSD', fee: '4%' },
+          { range: '50 - 99.99 RLUSD', fee: '2%' },
+          { range: '100+ RLUSD', fee: '1%' }
+        ],
+        note: 'The minimum amount for a tip is 1 RLUSD. Fees are automatically calculated and deducted from the amount you send. The recipient receives the amount after fees.'
+      },
+      'buy-lottery-ticket': {
+        title: '🎟️ Command: /buy-lottery-ticket',
+        description: 'Purchase a lottery ticket with RLUSD for a chance to win the jackpot.',
+        usage: '`/buy-lottery-ticket [amount]`',
+        options: [
+          { name: 'amount', description: 'Amount of RLUSD to spend on lottery tickets (optional, default: 1)' }
+        ],
+        examples: [
+          '`/buy-lottery-ticket` - Buy a lottery ticket for 1 RLUSD',
+          '`/buy-lottery-ticket 5` - Buy 5 lottery tickets (5 RLUSD)'
+        ],
+        note: 'Each ticket costs 1 RLUSD. The more tickets you buy, the higher your chances of winning. All ticket purchases go into the lottery pool, which will be awarded to the winner.'
+      },
+      'draw-lottery': {
+        title: '🎰 Command: /draw-lottery',
+        description: 'Draw the lottery and select a random winner from all participants. This command is restricted to administrators only.',
+        usage: '`/draw-lottery`',
+        options: [],
+        examples: [
+          '`/draw-lottery` - Draw the lottery and select a winner'
+        ],
+        note: 'When the lottery is drawn, a random ticket is selected from all purchased tickets. The owner of the winning ticket receives the entire lottery pool minus a small fee. After the draw, the lottery resets for a new round.'
       }
     };
     
-    // Get help information for the specific command
-    const helpInfo = commandHelp[commandName];
-    
-    // Create an embed for the specific command help
+    // Check if the command exists
+    if (!commandHelp[commandName]) {
+      await interaction.editReply({
+        content: `Command \`/${commandName}\` not found. Use \`/help\` to see all available commands.`,
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Get the help information for the command
+    const help = commandHelp[commandName];
+
+    // Create an embed for the command help
     const embed = new EmbedBuilder()
       .setColor(0x0099FF)
-      .setTitle(helpInfo.title)
-      .setDescription(helpInfo.description)
-      .addFields(
-        { name: '📝 Usage', value: helpInfo.usage },
-        { name: '🔧 Options', value: helpInfo.options.map(option => `\`${option.name}\` - ${option.description}`).join('\n') },
-        { name: '💡 Examples', value: helpInfo.examples.join('\n') }
+      .setTitle(help.title)
+      .setDescription(help.description)
+      .addFields({ name: 'Usage', value: help.usage });
+
+    // Add options if there are any
+    if (help.options && help.options.length > 0) {
+      embed.addFields({
+        name: 'Options',
+        value: help.options.map(option => `\`${option.name}\` - ${option.description}`).join('\n')
+      });
+    }
+
+    // Add examples if there are any
+    if (help.examples && help.examples.length > 0) {
+      embed.addFields({
+        name: 'Examples',
+        value: help.examples.join('\n')
+      });
+    }
+
+    // Add warning if there is one
+    if (help.warning) {
+      embed.addFields({ name: '⚠️ Warning', value: help.warning });
+    }
+
+    // Add note if there is one
+    if (help.note) {
+      embed.addFields({ name: '📝 Note', value: help.note });
+    }
+    
+    // Add fee structure if this is the fees command
+    if (commandName === 'fees' && help.feeStructure) {
+      const feeTable = help.feeStructure.map(tier => `${tier.range}: ${tier.fee}`).join('\n');
+      embed.addFields({ name: 'Fee Structure', value: feeTable });
+    }
+
+    // Create a button to go back to the general help
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('help_back')
+          .setLabel('Back to General Help')
+          .setStyle(ButtonStyle.Secondary)
       );
-    
-    if (helpInfo.warning) {
-      embed.addFields({ name: '⚠️ Warning', value: helpInfo.warning });
-    }
-    
-    if (helpInfo.note) {
-      embed.addFields({ name: '📌 Note', value: helpInfo.note });
-    }
-    
+
     // Send the embed to the user
     await interaction.editReply({
       content: null,
       embeds: [embed],
+      components: [row],
       ephemeral: true
     });
+  },
+  
+  // Handle button interactions for help command
+  async handleHelpButton(interaction, buttonId) {
+    if (buttonId === 'help_back') {
+      await this.showGeneralHelp(interaction);
+    } else if (buttonId.startsWith('help_')) {
+      const commandName = buttonId.replace('help_', '');
+      await this.showCommandHelp(interaction, commandName);
+    }
   }
 };

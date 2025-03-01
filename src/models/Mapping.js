@@ -1,31 +1,42 @@
 const mongoose = require('mongoose');
 
 const mappingSchema = new mongoose.Schema({
-  // Can be either a Discord user ID or an alias
+  // Informations d'identification
   identifier: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    index: true
   },
-  // Type of identifier: 'user' for Discord users, 'alias' for custom aliases
   identifierType: {
     type: String,
     enum: ['user', 'alias'],
-    required: true
+    required: true,
+    index: true
   },
-  // The Ethereum address mapped to this identifier
+  username: {
+    type: String,
+    default: '',
+    index: true
+  },
+  
+  // Informations blockchain
   address: {
     type: String,
-    required: true
+    required: true,
+    index: true
   },
-  // Who created this mapping
+  
+  // Métadonnées
   createdBy: {
     type: String,
-    required: true
+    required: true,
+    index: true
   },
   createdAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
+    index: true
   },
   updatedAt: {
     type: Date,
@@ -33,10 +44,14 @@ const mappingSchema = new mongoose.Schema({
   }
 });
 
-// Middleware to update the modification date
+// Middleware pour mettre à jour la date de modification
 mappingSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
+
+// Ajouter des index composites pour les requêtes fréquentes
+mappingSchema.index({ identifierType: 1, identifier: 1 });
+mappingSchema.index({ address: 1, identifierType: 1 });
 
 module.exports = mongoose.model('Mapping', mappingSchema); 

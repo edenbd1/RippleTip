@@ -1,38 +1,38 @@
 require('dotenv').config();
 const { REST, Routes } = require('discord.js');
 
-// Fonction pour supprimer toutes les commandes
+// Function to delete all commands
 async function deleteAllCommands() {
   try {
-    console.log('Début de la suppression des commandes slash...');
+    console.log('Starting to delete slash commands...');
     
-    // Vérifier les variables d'environnement nécessaires
+    // Check necessary environment variables
     if (!process.env.DISCORD_TOKEN) {
-      throw new Error('DISCORD_TOKEN non défini dans le fichier .env');
+      throw new Error('DISCORD_TOKEN not defined in .env file');
     }
     
     if (!process.env.DISCORD_APPLICATION_ID) {
-      throw new Error('DISCORD_APPLICATION_ID non défini dans le fichier .env');
+      throw new Error('DISCORD_APPLICATION_ID not defined in .env file');
     }
     
-    // Créer une instance REST pour envoyer les commandes à Discord
+    // Create a REST instance to send commands to Discord
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
     
-    // Supprimer toutes les commandes globales
-    console.log('Suppression de toutes les commandes slash globales...');
+    // Delete all global commands
+    console.log('Deleting all global slash commands...');
     
     await rest.put(
       Routes.applicationCommands(process.env.DISCORD_APPLICATION_ID),
       { body: [] },
     );
     
-    console.log('✅ Toutes les commandes slash ont été supprimées avec succès!');
-    console.log('Pour réenregistrer les commandes, exécutez: npm run refresh-commands');
+    console.log('✅ All slash commands have been successfully deleted!');
+    console.log('To re-register commands, run: npm run refresh-commands');
     
   } catch (error) {
-    console.error('Erreur lors de la suppression des commandes:', error);
+    console.error('Error deleting commands:', error);
   }
 }
 
-// Exécuter la fonction
+// Execute the function
 deleteAllCommands(); 

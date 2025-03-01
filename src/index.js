@@ -130,7 +130,7 @@ function startDiscordBot() {
           const message = interaction.fields.getTextInputValue('message_input') || '';
           
           // Get recipient display name
-          const { getDisplayNameForAddress } = require('./utils/mappingUtils');
+          const { getDisplayNameForAddress } = require('./utils/relationUtils');
           const recipientDisplay = await getDisplayNameForAddress(recipientAddress);
           
           // Create a confirmation embed
@@ -203,7 +203,7 @@ function startDiscordBot() {
           const suggestedAmount = parts[3] || "1"; // Use the previous amount as a suggestion
           
           // Get recipient display name
-          const { getDisplayNameForAddress } = require('./utils/mappingUtils');
+          const { getDisplayNameForAddress } = require('./utils/relationUtils');
           const recipientDisplay = await getDisplayNameForAddress(recipientAddress);
           
           // Create a modal for entering the amount
@@ -243,7 +243,7 @@ function startDiscordBot() {
           const recipientAddress = parts[2];
           
           // Get recipient display name
-          const { getDisplayNameForAddress } = require('./utils/mappingUtils');
+          const { getDisplayNameForAddress } = require('./utils/relationUtils');
           const recipientDisplay = await getDisplayNameForAddress(recipientAddress);
           
           // Create a modal for entering the amount
@@ -288,17 +288,15 @@ function startDiscordBot() {
           }
         }
         // Handle navigation buttons in associations
-        else if (customId.startsWith('mapping_')) {
+        else if (customId.startsWith('relation_')) {
           const parts = customId.split('_');
-          const action = parts[1]; // prev, next, refresh
+          const action = parts[1]; // 'prev' or 'next'
           const currentPage = parseInt(parts[2]);
           const searchAddress = parts[3] || '';
           const searchUserId = parts[4] || '';
           
-          const mappingCommand = client.commands.get('mapping');
-          if (mappingCommand && mappingCommand.handleNavigation) {
-            await mappingCommand.handleNavigation(interaction, action, currentPage, searchAddress, searchUserId);
-          }
+          const relationsCommand = client.commands.get('relations');
+          await relationsCommand.handleNavigation(interaction, action, currentPage, searchAddress, searchUserId);
         }
         // Handle navigation buttons in leaderboard
         else if (customId.startsWith('leaderboard_')) {
@@ -317,6 +315,20 @@ function startDiscordBot() {
           const helpCommand = client.commands.get('help');
           if (helpCommand && helpCommand.handleBackToGeneral) {
             await helpCommand.handleBackToGeneral(interaction);
+          }
+        }
+        // Handle lottery draw confirmation or cancellation
+        else if (customId === 'confirm_draw' || customId === 'cancel_draw') {
+          const drawCommand = client.commands.get('draw-lottery');
+          if (drawCommand && drawCommand.handleButton) {
+            await drawCommand.handleButton(interaction, customId);
+          }
+        }
+        // Handle buy ticket confirmation or cancellation
+        else if (customId.startsWith('confirm_buy_ticket_') || customId === 'cancel_buy_ticket') {
+          const buyTicketCommand = client.commands.get('buy-lottery-ticket');
+          if (buyTicketCommand && buyTicketCommand.handleButton) {
+            await buyTicketCommand.handleButton(interaction, customId);
           }
         }
         // Unhandled button

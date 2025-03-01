@@ -1,7 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
-const { getAddressForIdentifier, getDisplayNameForAddress } = require('../utils/mappingUtils');
+const { getAddressForIdentifier, getDisplayNameForAddress } = require('../utils/relationUtils');
 const { sendTip, getTransactionUrl, getAddressUrl } = require('../utils/tipUtils');
 const { isValidEthereumAddress } = require('../utils/ethereumUtils');
+const { calculateFees } = require('../utils/paymasterUtils');
 const { ethers } = require('ethers');
 
 module.exports = {
@@ -34,6 +35,17 @@ module.exports = {
         return interaction.editReply({ content: '❌ Invalid amount. Use a positive number.' });
       }
 
+      // Check if the amount is sufficient (minimum 1 RLUSD)
+      if (amount < 1) {
+        return interaction.editReply({ content: '❌ The minimum amount for a tip is 1 RLUSD.' });
+      }
+
+      // Calculate fees
+      const feeDetails = calculateFees(amount);
+      if (feeDetails.error) {
+        return interaction.editReply({ content: `❌ ${feeDetails.error}` });
+      }
+
       // Resolve the recipient address
       let recipientAddress = await getAddressForIdentifier(recipient);
       if (!recipientAddress) {
@@ -56,7 +68,9 @@ module.exports = {
         .setDescription(`You are about to send **${amount} RLUSD** to ${recipientDisplay}.`)
         .addFields(
           { name: 'Amount', value: `${amount} RLUSD`, inline: true },
-          { name: 'Recipient', value: recipientDisplay, inline: true }
+          { name: 'Recipient', value: recipientDisplay, inline: true },
+          { name: 'Fee', value: `${feeDetails.fee.toFixed(2)} RLUSD (${feeDetails.feePercentage}%)`, inline: true },
+          { name: 'Amount After Fee', value: `${feeDetails.amountAfterFee.toFixed(2)} RLUSD`, inline: true }
         );
       
       if (message) {
@@ -139,6 +153,8 @@ module.exports = {
         .addFields(
           { name: 'Amount', value: `${cleanAmount} RLUSD`, inline: true },
           { name: 'Recipient', value: recipientDisplay, inline: true },
+          { name: 'Fee', value: `${result.fee.toFixed(2)} RLUSD (${result.feePercentage}%)`, inline: true },
+          { name: 'Amount After Fee', value: `${result.amountAfterFee.toFixed(2)} RLUSD`, inline: true },
           { name: 'Transaction', value: `[View on Etherscan](${result.transactionUrl})` }
         );
 
@@ -166,7 +182,11 @@ module.exports = {
       const publicEmbed = new EmbedBuilder()
         .setColor('#00ff00')
         .setTitle('💰 New Tip!')
-        .setDescription(`🎉 <@${interaction.user.id}> sent **${cleanAmount} RLUSD** to ${recipientDisplay}!`);
+        .setDescription(`🎉 <@${interaction.user.id}> sent **${result.amountAfterFee.toFixed(2)} RLUSD** to ${recipientDisplay}!`)
+        .addFields(
+          { name: 'Amount', value: `${result.amountAfterFee.toFixed(2)} RLUSD`, inline: true },
+          { name: 'Fee', value: `${result.fee.toFixed(2)} RLUSD (${result.feePercentage}%)`, inline: true }
+        );
 
       if (cleanMessage && cleanMessage.trim() !== '') {
         publicEmbed.addFields({ name: 'Message', value: cleanMessage });

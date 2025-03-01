@@ -1,6 +1,6 @@
 const Tip = require('../models/Tip');
-const { getDisplayNameForAddress } = require('./mappingUtils');
-const { transferRLUSD } = require('./walletUtils');
+const { getDisplayNameForAddress } = require('./relationUtils');
+const { transferViaPaymaster, calculateFees } = require('./paymasterUtils');
 const User = require('../models/User');
 const { ethers } = require('ethers');
 
@@ -55,11 +55,45 @@ async function sendTip(senderId, recipientAddress, amount, message = '') {
     }
 
     // Ensure amount is a clean string (remove any non-numeric characters except decimal point)
-    const cleanAmount = amount.toString().replace(/[^0-9.]/g, '');
+    console.log('Original amount:', amount, 'Type:', typeof amount);
+    
+    // Convert to string and replace commas with dots
+    let cleanAmount = amount.toString().replace(',', '.');
+    
+    // Remove all non-numeric characters except decimal point
+    cleanAmount = cleanAmount.replace(/[^0-9.]/g, '');
+    
+    // Ensure there's only one decimal point
+    const parts = cleanAmount.split('.');
+    if (parts.length > 2) {
+      cleanAmount = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
     console.log('Clean amount for transfer:', cleanAmount);
 
-    // Send the transaction
-    const result = await transferRLUSD(sender.privateKey, recipientAddress, cleanAmount);
+    // Check if the cleaned amount is a valid number
+    if (isNaN(parseFloat(cleanAmount)) || !isFinite(parseFloat(cleanAmount))) {
+      return { 
+        success: false, 
+        message: 'The amount is not a valid number after cleaning.' 
+      };
+    }
+
+    // Calculate fees before transfer
+    const feeDetails = calculateFees(cleanAmount);
+    
+    // Check if the amount is too low
+    if (feeDetails.error) {
+      return { 
+        success: false, 
+        message: feeDetails.error
+      };
+    }
+    
+    console.log('Fee details:', feeDetails);
+
+    // Send the transaction via PayMaster
+    const result = await transferViaPaymaster(sender.privateKey, recipientAddress, cleanAmount);
     console.log('Transfer result:', result);
 
     if (!result.success) {
@@ -70,22 +104,36 @@ async function sendTip(senderId, recipientAddress, amount, message = '') {
       };
     }
 
-    // Record the tip in the database
-    const tip = new Tip({
-      senderId,
+    // Store the tip in the database
+    const newTip = new Tip({
+      senderId: sender.discordId,
+      senderAddress: sender.address,
       recipientAddress,
-      amount: parseFloat(cleanAmount), // Store as number in database
+      amount: cleanAmount,
+      amountAfterFee: feeDetails.amountAfterFee, // Store amount after fees
+      fee: feeDetails.fee,
+      feePercentage: feeDetails.feePercentage,
       message,
       transactionHash: result.transactionHash,
-      status: 'confirmed'
+      timestamp: new Date(),
+      ethSent: result.ethSent || false,
+      ethTransactionHash: result.ethSent ? result.ethTransactionUrl : null
     });
-    await tip.save();
 
+    await newTip.save();
+    console.log('Tip saved to database');
+
+    // Include ETH sending information if applicable
     return {
       success: true,
-      message: 'Tip sent successfully',
       transactionHash: result.transactionHash,
-      transactionUrl: getTransactionUrl(result.transactionHash)
+      transactionUrl: getTransactionUrl(result.transactionHash),
+      amount: cleanAmount,
+      amountAfterFee: feeDetails.amountAfterFee,
+      fee: feeDetails.fee,
+      feePercentage: feeDetails.feePercentage,
+      ethSent: result.ethSent || false,
+      ethTransactionUrl: result.ethSent ? result.ethTransactionUrl : null
     };
   } catch (error) {
     console.error('Error sending tip:', error);
@@ -143,10 +191,16 @@ async function getUserTipHistory(userId, page = 1, limit = 5) {
     }));
 
     const enhancedReceivedTips = await Promise.all(receivedTips.map(async tip => {
-      const senderUser = await User.findOne({ discordId: tip.senderId });
+      // Use the stored username if available, otherwise fetch it
+      let senderDisplay = tip.senderUsername;
+      if (!senderDisplay) {
+        const senderUser = await User.findOne({ discordId: tip.senderId });
+        senderDisplay = senderUser ? senderUser.username : 'Unknown User';
+      }
+      
       return {
         ...tip.toObject(),
-        senderDisplay: senderUser ? senderUser.username : 'Unknown User'
+        senderDisplay: senderDisplay
       };
     }));
 
@@ -192,7 +246,8 @@ async function getLeaderboard(page = 1, limit = 5) {
       { $group: {
           _id: '$senderId',
           totalSent: { $sum: '$amount' },
-          count: { $sum: 1 }
+          count: { $sum: 1 },
+          username: { $first: '$senderUsername' }
         }
       },
       { $sort: { totalSent: -1 } },
@@ -208,21 +263,27 @@ async function getLeaderboard(page = 1, limit = 5) {
 
     // Enhance the data with user information
     const enhancedSenders = await Promise.all(topSenders.map(async sender => {
-      const user = await User.findOne({ discordId: sender._id });
+      // Use the stored username if available, otherwise fetch it
+      let username = sender.username;
+      if (!username) {
+        const user = await User.findOne({ discordId: sender._id });
+        username = user ? user.username : 'Unknown User';
+      }
+      
       return {
         ...sender,
-        username: user ? user.username : 'Unknown User',
+        username: username,
         discordId: sender._id
       };
     }));
 
-    // Pour les receveurs, nous allons d'abord récupérer toutes les transactions
+    // For receivers, we'll first retrieve all transactions
     const allTips = await Tip.find({ status: 'confirmed' });
     
-    // Créer un map pour stocker les informations par nom d'affichage
+    // Create a map to store information by display name
     const receiversByDisplayName = new Map();
     
-    // Traiter chaque transaction pour regrouper par nom d'affichage
+    // Process each transaction to group by display name
     await Promise.all(allTips.map(async tip => {
       const displayName = await getDisplayNameForAddress(tip.recipientAddress);
       
@@ -241,12 +302,12 @@ async function getLeaderboard(page = 1, limit = 5) {
       receiver.addresses.add(tip.recipientAddress);
     }));
     
-    // Convertir la map en tableau et trier par montant total reçu
+    // Convert map to array and sort by total amount received
     let topReceivers = Array.from(receiversByDisplayName.values())
       .sort((a, b) => b.totalReceived - a.totalReceived)
       .slice(skip, skip + limit)
       .map(receiver => ({
-        _id: Array.from(receiver.addresses)[0], // Utiliser la première adresse comme ID
+        _id: Array.from(receiver.addresses)[0], // Use the first address as ID
         displayName: receiver.displayName,
         totalReceived: receiver.totalReceived,
         count: receiver.count,

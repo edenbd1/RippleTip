@@ -3,62 +3,62 @@ const { REST, Routes } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
-// ID du serveur Discord
+// Discord server ID
 const GUILD_ID = '1344829703592083597';
 
-// Fonction pour enregistrer les commandes sur un serveur spécifique
+// Function to register commands on a specific server
 async function registerGuildCommands() {
   try {
-    console.log(`Début de l'enregistrement des commandes slash pour le serveur ${GUILD_ID}...`);
+    console.log(`Starting slash command registration for server ${GUILD_ID}...`);
     
-    // Vérifier les variables d'environnement nécessaires
+    // Check necessary environment variables
     if (!process.env.DISCORD_TOKEN) {
-      throw new Error('DISCORD_TOKEN non défini dans le fichier .env');
+      throw new Error('DISCORD_TOKEN not defined in .env file');
     }
     
     if (!process.env.DISCORD_APPLICATION_ID) {
-      throw new Error('DISCORD_APPLICATION_ID non défini dans le fichier .env');
+      throw new Error('DISCORD_APPLICATION_ID not defined in .env file');
     }
     
-    // Créer un tableau pour stocker les commandes
+    // Create an array to store commands
     const commands = [];
     
-    // Lire les fichiers de commandes
+    // Read command files
     const commandsPath = path.join(__dirname, '..', 'commands');
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
     
-    // Charger chaque commande
+    // Load each command
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
       const command = require(filePath);
       
       if ('data' in command && 'execute' in command) {
         commands.push(command.data.toJSON());
-        console.log(`Commande chargée: ${command.data.name}`);
+        console.log(`Command loaded: ${command.data.name}`);
       } else {
-        console.log(`[AVERTISSEMENT] La commande à ${filePath} manque de propriétés requises.`);
+        console.log(`[WARNING] The command at ${filePath} is missing required properties.`);
       }
     }
     
-    // Créer une instance REST pour envoyer les commandes à Discord
+    // Create a REST instance to send commands to Discord
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
     
-    // Enregistrer les commandes
-    console.log(`Tentative d'enregistrement de ${commands.length} commandes slash sur le serveur...`);
+    // Register commands
+    console.log(`Attempting to register ${commands.length} slash commands on the server...`);
     
-    // Enregistrer les commandes sur le serveur spécifique
+    // Register commands on the specific server
     const data = await rest.put(
       Routes.applicationGuildCommands(process.env.DISCORD_APPLICATION_ID, GUILD_ID),
       { body: commands },
     );
     
-    console.log(`✅ ${data.length} commandes slash enregistrées avec succès sur le serveur!`);
-    console.log('Les commandes devraient être disponibles immédiatement.');
+    console.log(`✅ ${data.length} slash commands successfully registered on the server!`);
+    console.log('Commands should be available immediately.');
     
   } catch (error) {
-    console.error('Erreur lors de l\'enregistrement des commandes:', error);
+    console.error('Error registering commands:', error);
   }
 }
 
-// Exécuter la fonction
+// Execute the function
 registerGuildCommands(); 

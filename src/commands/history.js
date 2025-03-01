@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const { getUserTipHistory } = require('../utils/tipUtils');
-const { formatAddress } = require('../utils/mappingUtils');
+const { formatAddress } = require('../utils/relationUtils');
 
 module.exports = {
   data: new SlashCommandBuilder()

@@ -3,61 +3,61 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 
 let mongoMemoryServer;
 
-// Fonction pour se connecter à MongoDB
+// Function to connect to MongoDB
 async function connectToDatabase() {
   try {
-    // Désactiver les avertissements de dépréciation
+    // Disable deprecation warnings
     mongoose.set('strictQuery', false);
     
-    console.log('Tentative de connexion à MongoDB...');
+    console.log('Attempting to connect to MongoDB...');
     
-    // Options de connexion
+    // Connection options
     const options = {
-      serverSelectionTimeoutMS: 5000, // Réduire le délai d'attente pour échouer plus rapidement
+      serverSelectionTimeoutMS: 5000, // Reduce timeout to fail faster
     };
     
     try {
-      // Tentative de connexion à la base de données configurée
+      // Attempt to connect to the configured database
       await mongoose.connect(process.env.MONGODB_URI, options);
-      console.log('Connecté à MongoDB avec succès!');
+      console.log('Successfully connected to MongoDB!');
       return true;
     } catch (error) {
-      console.error('Erreur de connexion à MongoDB:', error.message);
-      console.log("Tentative de démarrage d'une base de données en mémoire...");
+      console.error('Error connecting to MongoDB:', error.message);
+      console.log("Attempting to start an in-memory database...");
       
-      // Démarrer une base de données MongoDB en mémoire
+      // Start an in-memory MongoDB database
       mongoMemoryServer = await MongoMemoryServer.create();
       const mongoUri = mongoMemoryServer.getUri();
       
-      console.log(`Base de données en mémoire démarrée à l'adresse: ${mongoUri}`);
+      console.log(`In-memory database started at address: ${mongoUri}`);
       
-      // Connexion à la base de données en mémoire
+      // Connect to the in-memory database
       await mongoose.connect(mongoUri);
-      console.log('Connecté à la base de données en mémoire avec succès!');
+      console.log('Successfully connected to the in-memory database!');
       
       return true;
     }
   } catch (error) {
-    console.error('Erreur fatale lors de la connexion à MongoDB:', error.message);
+    console.error('Fatal error connecting to MongoDB:', error.message);
     return false;
   }
 }
 
-// Vérifier l'état de la connexion
+// Check connection status
 function isConnected() {
   return mongoose.connection.readyState === 1;
 }
 
-// Fermer la connexion et arrêter le serveur en mémoire si nécessaire
+// Close connection and stop in-memory server if necessary
 async function closeConnection() {
   await mongoose.connection.close();
   
   if (mongoMemoryServer) {
     await mongoMemoryServer.stop();
-    console.log('Serveur MongoDB en mémoire arrêté');
+    console.log('In-memory MongoDB server stopped');
   }
   
-  console.log('Connexion MongoDB fermée');
+  console.log('MongoDB connection closed');
 }
 
 module.exports = {

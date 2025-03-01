@@ -29,15 +29,15 @@ async function getAddressForIdentifier(identifier) {
       searchId = identifier.replace(/[<@!>]/g, '');
     }
 
-    // Search for the mapping
-    const mapping = await Mapping.findOne({ 
+    // Search for the relation
+    const relation = await Mapping.findOne({ 
       $or: [
         { identifier: searchId, identifierType: 'user' },
         { identifier: searchId.toLowerCase(), identifierType: 'alias' }
       ]
     });
 
-    return mapping ? mapping.address : null;
+    return relation ? relation.address : null;
   } catch (error) {
     console.error('Error getting address for identifier:', error);
     return null;
@@ -53,22 +53,22 @@ async function getDisplayNameForAddress(address) {
   try {
     if (!address) return 'Unknown';
 
-    // Find the mapping for this address
-    const mapping = await Mapping.findOne({ address: address.toLowerCase() });
+    // Find the relation for this address
+    const relation = await Mapping.findOne({ address: address.toLowerCase() });
 
-    if (mapping) {
-      if (mapping.identifierType === 'user') {
+    if (relation) {
+      if (relation.identifierType === 'user') {
         // Return the username if available, otherwise fall back to Discord mention
-        if (mapping.username) {
-          return mapping.username;
+        if (relation.username) {
+          return relation.username;
         }
-        return `<@${mapping.identifier}>`;
+        return `<@${relation.identifier}>`;
       } else {
-        return mapping.identifier; // Return the alias
+        return relation.identifier; // Return the alias
       }
     }
 
-    // If no mapping found, return the formatted address
+    // If no relation found, return the formatted address
     return formatAddress(address);
   } catch (error) {
     console.error('Error getting display name for address:', error);
@@ -77,14 +77,14 @@ async function getDisplayNameForAddress(address) {
 }
 
 /**
- * Create or update a mapping
+ * Create or update a relation
  * @param {string} identifier - Discord user ID or alias
  * @param {string} identifierType - 'user' or 'alias'
  * @param {string} address - Ethereum address
- * @param {string} createdBy - Discord ID of the user creating the mapping
+ * @param {string} createdBy - Discord ID of the user creating the relation
  * @returns {Promise<Object>} - Result of the operation
  */
-async function createOrUpdateMapping(identifier, identifierType, address, createdBy) {
+async function createOrUpdateRelation(identifier, identifierType, address, createdBy) {
   try {
     // Validate the address
     if (!isValidEthereumAddress(address)) {
@@ -105,82 +105,82 @@ async function createOrUpdateMapping(identifier, identifierType, address, create
       }
     }
 
-    // Check if the mapping already exists
-    const existingMapping = await Mapping.findOne({ identifier: normalizedIdentifier, identifierType });
+    // Check if the relation already exists
+    const existingRelation = await Mapping.findOne({ identifier: normalizedIdentifier, identifierType });
 
-    if (existingMapping) {
-      // Update the existing mapping
-      existingMapping.address = normalizedAddress;
-      existingMapping.updatedAt = Date.now();
+    if (existingRelation) {
+      // Update the existing relation
+      existingRelation.address = normalizedAddress;
+      existingRelation.updatedAt = Date.now();
       
       // Update username if it's a user identifier
       if (identifierType === 'user' && username) {
-        existingMapping.username = username;
+        existingRelation.username = username;
       }
       
-      await existingMapping.save();
-      return { success: true, message: 'Mapping updated successfully', isUpdate: true };
+      await existingRelation.save();
+      return { success: true, message: 'Relation updated successfully', isUpdate: true };
     } else {
-      // Create a new mapping
-      const newMapping = new Mapping({
+      // Create a new relation
+      const newRelation = new Mapping({
         identifier: normalizedIdentifier,
         identifierType,
         address: normalizedAddress,
         createdBy,
         username: username
       });
-      await newMapping.save();
-      return { success: true, message: 'Mapping created successfully', isUpdate: false };
+      await newRelation.save();
+      return { success: true, message: 'Relation created successfully', isUpdate: false };
     }
   } catch (error) {
-    console.error('Error creating/updating mapping:', error);
-    return { success: false, message: 'Error creating/updating mapping' };
+    console.error('Error creating/updating relation:', error);
+    return { success: false, message: 'Error creating/updating relation' };
   }
 }
 
 /**
- * Remove a mapping
+ * Remove a relation
  * @param {string} identifier - Discord user ID or alias
  * @param {string} identifierType - 'user' or 'alias'
  * @returns {Promise<Object>} - Result of the operation
  */
-async function removeMapping(identifier, identifierType) {
+async function removeRelation(identifier, identifierType) {
   try {
     // Normalize the identifier
     const normalizedIdentifier = identifierType === 'alias' ? identifier.toLowerCase() : identifier;
 
-    // Find and delete the mapping
+    // Find and delete the relation
     const result = await Mapping.findOneAndDelete({ identifier: normalizedIdentifier, identifierType });
 
     if (result) {
-      return { success: true, message: 'Mapping removed successfully' };
+      return { success: true, message: 'Relation removed successfully' };
     } else {
-      return { success: false, message: 'Mapping not found' };
+      return { success: false, message: 'Relation not found' };
     }
   } catch (error) {
-    console.error('Error removing mapping:', error);
-    return { success: false, message: 'Error removing mapping' };
+    console.error('Error removing relation:', error);
+    return { success: false, message: 'Error removing relation' };
   }
 }
 
 /**
- * Get all mappings for a user
+ * Get all relations for a user
  * @param {string} userId - Discord user ID
- * @returns {Promise<Array>} - Array of mappings
+ * @returns {Promise<Array>} - Array of relations
  */
-async function getUserMappings(userId) {
+async function getUserRelations(userId) {
   try {
-    // Get user's own mapping and any aliases they created
-    const mappings = await Mapping.find({
+    // Get user's own relation and any aliases they created
+    const relations = await Mapping.find({
       $or: [
         { identifier: userId, identifierType: 'user' },
         { createdBy: userId }
       ]
     }).sort({ createdAt: -1 });
 
-    return mappings;
+    return relations;
   } catch (error) {
-    console.error('Error getting user mappings:', error);
+    console.error('Error getting user relations:', error);
     return [];
   }
 }
@@ -189,7 +189,7 @@ module.exports = {
   formatAddress,
   getAddressForIdentifier,
   getDisplayNameForAddress,
-  createOrUpdateMapping,
-  removeMapping,
-  getUserMappings
+  createOrUpdateRelation,
+  removeRelation,
+  getUserRelations
 }; 

@@ -3,58 +3,58 @@ const { REST, Routes } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
-// Fonction pour rafraîchir les commandes
+// Function to refresh commands
 async function refreshCommands() {
   try {
-    console.log('Début du rafraîchissement des commandes slash...');
+    console.log('Starting to refresh slash commands...');
     
-    // Vérifier les variables d'environnement nécessaires
+    // Check necessary environment variables
     if (!process.env.DISCORD_TOKEN) {
-      throw new Error('DISCORD_TOKEN non défini dans le fichier .env');
+      throw new Error('DISCORD_TOKEN not defined in .env file');
     }
     
     if (!process.env.DISCORD_APPLICATION_ID) {
-      throw new Error('DISCORD_APPLICATION_ID non défini dans le fichier .env');
+      throw new Error('DISCORD_APPLICATION_ID not defined in .env file');
     }
     
-    // Créer un tableau pour stocker les commandes
+    // Create an array to store commands
     const commands = [];
     
-    // Lire les fichiers de commandes
+    // Read command files
     const commandsPath = path.join(__dirname, '..', 'commands');
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
     
-    // Charger chaque commande
+    // Load each command
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
       const command = require(filePath);
       
       if ('data' in command && 'execute' in command) {
         commands.push(command.data.toJSON());
-        console.log(`Commande chargée: ${command.data.name}`);
+        console.log(`Command loaded: ${command.data.name}`);
       } else {
-        console.log(`[AVERTISSEMENT] La commande à ${filePath} manque de propriétés requises.`);
+        console.log(`[WARNING] The command at ${filePath} is missing required properties.`);
       }
     }
     
-    // Créer une instance REST pour envoyer les commandes à Discord
+    // Create a REST instance to send commands to Discord
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
     
-    // Enregistrer les commandes
-    console.log(`Tentative d'enregistrement de ${commands.length} commandes slash...`);
+    // Register commands
+    console.log(`Attempting to register ${commands.length} slash commands...`);
     
-    // Enregistrer les commandes globalement (pour tous les serveurs)
+    // Register commands globally (for all servers)
     const data = await rest.put(
       Routes.applicationCommands(process.env.DISCORD_APPLICATION_ID),
       { body: commands },
     );
     
-    console.log(`✅ ${data.length} commandes slash enregistrées avec succès!`);
+    console.log(`✅ ${data.length} slash commands successfully registered!`);
     
   } catch (error) {
-    console.error('Erreur lors du rafraîchissement des commandes:', error);
+    console.error('Error refreshing commands:', error);
   }
 }
 
-// Exécuter la fonction
+// Execute the function
 refreshCommands(); 

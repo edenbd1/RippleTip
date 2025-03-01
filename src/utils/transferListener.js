@@ -5,166 +5,166 @@ const { ethers } = require('ethers');
 const mongoose = require('mongoose');
 
 /**
- * Initialise l'écouteur d'événements de transfert
- * @param {Client} client - Client Discord
+ * Initializes the transfer event listener
+ * @param {Client} client - Discord Client
  */
 function initTransferListener(client) {
-  console.log('Initialisation de l\'écouteur d\'événements de transfert RLUSD...');
+  console.log('Initializing RLUSD transfer event listener...');
   
-  // Vérifier si MongoDB est connecté
+  // Check if MongoDB is connected
   const mongoStatus = mongoose.connection.readyState;
   
   if (mongoStatus === 0) {
-    console.log('MongoDB non connecté. L\'écouteur de transfert fonctionnera sans persistance des données.');
+    console.log('MongoDB not connected. Transfer listener will work without data persistence.');
     setupTransferListener(client, false);
     
-    // Essayer de se reconnecter à MongoDB
+    // Try to reconnect to MongoDB
     mongoose.connection.on('connected', () => {
-      console.log('MongoDB connecté après tentative. Réinitialisation de l\'écouteur de transfert avec persistance...');
+      console.log('MongoDB connected after attempt. Reinitializing transfer listener with persistence...');
       setupTransferListener(client, true);
     });
   } else if (mongoStatus === 1) {
-    console.log('MongoDB connecté. L\'écouteur de transfert fonctionnera avec persistance des données.');
+    console.log('MongoDB connected. Transfer listener will work with data persistence.');
     setupTransferListener(client, true);
   } else if (mongoStatus === 2) {
-    console.log('Connexion MongoDB en cours. Attente avant d\'initialiser l\'écouteur de transfert...');
+    console.log('MongoDB connection in progress. Waiting before initializing transfer listener...');
     mongoose.connection.once('connected', () => {
-      console.log('MongoDB connecté. Initialisation de l\'écouteur de transfert avec persistance...');
+      console.log('MongoDB connected. Initializing transfer listener with persistence...');
       setupTransferListener(client, true);
     });
   } else {
-    console.log(`État de connexion MongoDB inconnu (${mongoStatus}). L\'écouteur de transfert fonctionnera sans persistance.`);
+    console.log(`Unknown MongoDB connection state (${mongoStatus}). Transfer listener will work without persistence.`);
     setupTransferListener(client, false);
   }
   
-  // Gérer les erreurs de connexion
+  // Handle connection errors
   mongoose.connection.on('error', (err) => {
-    console.error('Erreur de connexion MongoDB dans l\'écouteur de transfert:', err.message);
+    console.error('MongoDB connection error in transfer listener:', err.message);
   });
   
-  // Gérer les déconnexions
+  // Handle disconnections
   mongoose.connection.on('disconnected', () => {
-    console.log('MongoDB déconnecté. L\'écouteur de transfert fonctionnera sans persistance des données.');
+    console.log('MongoDB disconnected. Transfer listener will work without data persistence.');
   });
 }
 
 /**
- * Configure l'écouteur d'événements de transfert
- * @param {Client} client - Client Discord
- * @param {boolean} withMongoDB - Indique si MongoDB est disponible
+ * Sets up the transfer event listener
+ * @param {Client} client - Discord Client
+ * @param {boolean} withMongoDB - Indicates if MongoDB is available
  */
 function setupTransferListener(client, withMongoDB = true) {
-  // Écouter les événements Transfer
+  // Listen for Transfer events
   rlusdContract.on('Transfer', async (from, to, value, event) => {
     try {
-      console.log(`Transfert détecté: ${from} -> ${to}, ${value} RLUSD`);
+      console.log(`Transfer detected: ${from} -> ${to}, ${value} RLUSD`);
       
-      // Récupérer les détails de la transaction
+      // Get transaction details
       const txHash = event.log.transactionHash;
       
-      // Convertir la valeur en nombre lisible
+      // Convert value to readable number
       const decimals = await rlusdContract.decimals();
       const formattedValue = ethers.formatUnits(value, decimals);
       
-      // Variables pour stocker les informations des utilisateurs
+      // Variables to store user information
       let fromUser = null;
       let toUser = null;
       
-      // Rechercher les utilisateurs correspondants aux adresses si MongoDB est disponible
+      // Look for users matching the addresses if MongoDB is available
       if (withMongoDB && mongoose.connection.readyState === 1) {
         try {
           fromUser = await User.findOne({ walletAddress: from.toLowerCase() });
           toUser = await User.findOne({ walletAddress: to.toLowerCase() });
         } catch (dbError) {
-          console.error('Erreur lors de la recherche des utilisateurs dans MongoDB:', dbError.message);
+          console.error('Error searching for users in MongoDB:', dbError.message);
         }
       }
       
-      // Si les deux utilisateurs sont dans notre base de données, envoyer une notification
+      // If both users are in our database, send a notification
       if (fromUser && toUser) {
-        // Trouver un canal pour envoyer la notification
+        // Find a channel to send the notification
         const guilds = client.guilds.cache.values();
         for (const guild of guilds) {
-          // Chercher un canal approprié (par exemple, un canal nommé "transactions")
+          // Look for an appropriate channel (for example, a channel named "transactions")
           const channel = guild.channels.cache.find(ch => 
-            ch.name.includes('transaction') || ch.name.includes('transfert') || 
-            ch.name.includes('bot') || ch.name.includes('général') || ch.name.includes('general')
+            ch.name.includes('transaction') || ch.name.includes('transfer') || 
+            ch.name.includes('bot') || ch.name.includes('general')
           );
           
           if (channel && channel.isTextBased()) {
             try {
-              // Créer un embed pour la notification
+              // Create an embed for the notification
               const embed = new EmbedBuilder()
                 .setColor(0x00FF00)
-                .setTitle('💸 Transfert RLUSD')
-                .setDescription(`Un transfert de RLUSD a été effectué entre deux membres du serveur.`)
+                .setTitle('💸 RLUSD Transfer')
+                .setDescription(`A RLUSD transfer has been made between two server members.`)
                 .addFields(
-                  { name: 'De', value: `<@${fromUser.discordId}> (${from})` },
-                  { name: 'À', value: `<@${toUser.discordId}> (${to})` },
-                  { name: 'Montant', value: `${formattedValue} RLUSD` },
-                  { name: 'Transaction', value: `[Voir sur Etherscan](https://sepolia.etherscan.io/tx/${txHash})` }
+                  { name: 'From', value: `<@${fromUser.discordId}> (${from})` },
+                  { name: 'To', value: `<@${toUser.discordId}> (${to})` },
+                  { name: 'Amount', value: `${formattedValue} RLUSD` },
+                  { name: 'Transaction', value: `[View on Etherscan](https://sepolia.etherscan.io/tx/${txHash})` }
                 )
                 .setTimestamp();
               
-              // Envoyer la notification
+              // Send the notification
               await channel.send({ embeds: [embed] });
               
-              // Envoyer également un message privé aux utilisateurs concernés
+              // Also send a private message to the users involved
               try {
                 const fromDiscordUser = await client.users.fetch(fromUser.discordId);
                 const toDiscordUser = await client.users.fetch(toUser.discordId);
                 
-                // Message à l'expéditeur
+                // Message to the sender
                 const fromEmbed = new EmbedBuilder()
                   .setColor(0xFF0000)
-                  .setTitle('💸 Transfert RLUSD envoyé')
-                  .setDescription(`Vous avez envoyé des RLUSD à ${toUser.username}.`)
+                  .setTitle('💸 RLUSD Transfer Sent')
+                  .setDescription(`You have sent RLUSD to ${toUser.username}.`)
                   .addFields(
-                    { name: 'À', value: `${toUser.username} (${to})` },
-                    { name: 'Montant', value: `${formattedValue} RLUSD` },
-                    { name: 'Transaction', value: `[Voir sur Etherscan](https://sepolia.etherscan.io/tx/${txHash})` }
+                    { name: 'To', value: `${toUser.username} (${to})` },
+                    { name: 'Amount', value: `${formattedValue} RLUSD` },
+                    { name: 'Transaction', value: `[View on Etherscan](https://sepolia.etherscan.io/tx/${txHash})` }
                   )
                   .setTimestamp();
                 
                 await fromDiscordUser.send({ embeds: [fromEmbed] }).catch(err => 
-                  console.log(`Impossible d'envoyer un message à l'utilisateur ${fromUser.username}: ${err.message}`)
+                  console.log(`Unable to send a message to user ${fromUser.username}: ${err.message}`)
                 );
                 
-                // Message au destinataire
+                // Message to the recipient
                 const toEmbed = new EmbedBuilder()
                   .setColor(0x00FF00)
-                  .setTitle('💰 Transfert RLUSD reçu')
-                  .setDescription(`Vous avez reçu des RLUSD de ${fromUser.username}.`)
+                  .setTitle('💰 RLUSD Transfer Received')
+                  .setDescription(`You have received RLUSD from ${fromUser.username}.`)
                   .addFields(
-                    { name: 'De', value: `${fromUser.username} (${from})` },
-                    { name: 'Montant', value: `${formattedValue} RLUSD` },
-                    { name: 'Transaction', value: `[Voir sur Etherscan](https://sepolia.etherscan.io/tx/${txHash})` }
+                    { name: 'From', value: `${fromUser.username} (${from})` },
+                    { name: 'Amount', value: `${formattedValue} RLUSD` },
+                    { name: 'Transaction', value: `[View on Etherscan](https://sepolia.etherscan.io/tx/${txHash})` }
                   )
                   .setTimestamp();
                 
                 await toDiscordUser.send({ embeds: [toEmbed] }).catch(err => 
-                  console.log(`Impossible d'envoyer un message à l'utilisateur ${toUser.username}: ${err.message}`)
+                  console.log(`Unable to send a message to user ${toUser.username}: ${err.message}`)
                 );
               } catch (dmError) {
-                console.error('Erreur lors de l\'envoi des messages privés:', dmError.message);
+                console.error('Error sending private messages:', dmError.message);
               }
               
-              // Sortir de la boucle une fois qu'une notification a été envoyée
+              // Exit the loop once a notification has been sent
               break;
             } catch (channelError) {
-              console.error(`Erreur lors de l'envoi dans le canal ${channel.name}:`, channelError.message);
+              console.error(`Error sending to channel ${channel.name}:`, channelError.message);
             }
           }
         }
       } else {
-        console.log('Transfert détecté mais les utilisateurs ne sont pas dans notre base de données ou MongoDB n\'est pas disponible.');
+        console.log('Transfer detected but users are not in our database or MongoDB is not available.');
       }
     } catch (error) {
-      console.error('Erreur lors du traitement de l\'événement de transfert:', error.message);
+      console.error('Error processing transfer event:', error.message);
     }
   });
   
-  console.log('Écouteur d\'événements de transfert RLUSD initialisé avec succès.');
+  console.log('RLUSD transfer event listener successfully initialized.');
 }
 
 module.exports = { initTransferListener }; 

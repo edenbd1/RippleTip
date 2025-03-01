@@ -1,43 +1,64 @@
 const mongoose = require('mongoose');
 
 const tipSchema = new mongoose.Schema({
-  // Discord ID of the sender
+  // Informations sur l'expéditeur
   senderId: {
     type: String,
-    required: true
+    required: true,
+    index: true
   },
-  // Ethereum address of the recipient
+  senderUsername: {
+    type: String,
+    default: '',
+    index: true
+  },
+  senderWalletAddress: {
+    type: String,
+    default: '',
+    index: true
+  },
+  
+  // Informations sur le destinataire
   recipientAddress: {
     type: String,
-    required: true
+    required: true,
+    index: true
   },
-  // Amount of RLUSD sent
+  
+  // Détails de la transaction
   amount: {
     type: Number,
-    required: true
+    required: true,
+    index: true
   },
-  // Optional message with the tip
   message: {
     type: String,
     default: ''
   },
-  // Transaction hash on the blockchain
   transactionHash: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    index: true
   },
-  // Status of the transaction: 'pending', 'confirmed', 'failed'
   status: {
     type: String,
     enum: ['pending', 'confirmed', 'failed'],
-    default: 'pending'
+    default: 'pending',
+    index: true
   },
-  // Timestamp of the tip
+  
+  // Métadonnées
   timestamp: {
     type: Date,
-    default: Date.now
+    default: Date.now,
+    index: true
   }
 });
+
+// Ajouter des index composites pour les requêtes fréquentes
+tipSchema.index({ senderId: 1, timestamp: -1 });
+tipSchema.index({ recipientAddress: 1, timestamp: -1 });
+tipSchema.index({ status: 1, timestamp: -1 });
 
 module.exports = mongoose.model('Tip', tipSchema); 

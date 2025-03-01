@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
-const { getAddressForIdentifier, formatAddress } = require('../utils/mappingUtils');
+const { getAddressForIdentifier, formatAddress } = require('../utils/relationUtils');
 const { getAddressUrl } = require('../utils/tipUtils');
 const { getBalance } = require('../utils/ethereumUtils');
 const User = require('../models/User');
@@ -32,7 +32,7 @@ module.exports = {
         }
       }
       
-      // If no address found yet, try to resolve from mappings or direct address
+      // If no address found yet, try to resolve from relations or direct address
       if (!address) {
         address = await getAddressForIdentifier(identifier);
         if (!address) {
